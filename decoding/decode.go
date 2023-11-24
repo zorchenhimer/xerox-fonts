@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"bytes"
-	"bufio"
+	//"bufio"
 	"encoding/binary"
 	"strings"
 	//"unsafe"
@@ -123,17 +123,24 @@ func (h ExtraHeader) Is9700() bool {
 type CharacterMeta interface {
 	Is5Word() bool
 	IsSpacing() bool
+	Offset(start int64) int
 }
 
 type CharacterMeta9700 struct {
 	BlanksLeft byte
 	Spacing byte // nonblank = $00, spacing = $80, null = ??
-	UnknownB byte
-	UnknownC byte
-	UnknownD int8
-	UnknownE int8
+	//UnknownB byte
+	//UnknownC byte
+	GlyphOffset uint16  // halved.  multiply by 2 for byte offset.
+	BottomOffset int8 // bitmap bottom offset from top of font bounds
+	UnknownE int8 // negated bytes per line?
+	//UnknownDE uint16
 	CellWidth byte
 	UnknownG byte // accent?
+}
+
+func (m CharacterMeta9700) Offset(start int64) int {
+	return int(start) + (int(m.GlyphOffset) * 2)
 }
 
 func (m CharacterMeta9700) String() string {
@@ -145,9 +152,11 @@ func (m CharacterMeta9700) String() string {
 	sb := &strings.Builder{}
 	fmt.Fprintf(sb, "BlanksLeft:  $%02X %03d\n", m.BlanksLeft, m.BlanksLeft)
 	fmt.Fprintf(sb, "Spacing:     $%02X %03d %s\n", m.Spacing, m.Spacing, spaceStr)
-	fmt.Fprintf(sb, "UnknownB:    $%02X %03d\n", m.UnknownB, m.UnknownB)
-	fmt.Fprintf(sb, "UnknownC:    $%02X %03d\n", m.UnknownC, m.UnknownC)
-	fmt.Fprintf(sb, "UnknownD:    $%02X %03d\n", uint8(m.UnknownD), m.UnknownD)
+	//fmt.Fprintf(sb, "UnknownB:    $%02X %03d\n", m.UnknownB, m.UnknownB)
+	//fmt.Fprintf(sb, "UnknownC:    $%02X %03d\n", m.UnknownC, m.UnknownC)
+	fmt.Fprintf(sb, "GlyphOffset: $%04X %04d\n", m.GlyphOffset, m.GlyphOffset)
+	//fmt.Fprintf(sb, "UnknownDE:    $%04X %04d\n", m.UnknownDE, m.UnknownDE)
+	fmt.Fprintf(sb, "BottomOffset:    $%02X %03d\n", uint8(m.BottomOffset), m.BottomOffset)
 	fmt.Fprintf(sb, "UnknownE:    $%02X %03d\n", uint8(m.UnknownE), m.UnknownE)
 	fmt.Fprintf(sb, "CellWidth:   $%02X %03d\n", m.CellWidth, m.CellWidth)
 	fmt.Fprintf(sb, "UnknownG:    $%02X %03d\n", m.UnknownG, m.UnknownG)
@@ -173,6 +182,10 @@ type CharacterMeta5Word struct {
 	Unknown7 byte
 	Unknown8 byte
 	Unknown9 byte
+}
+
+func (m CharacterMeta5Word) Offset(start int64) int {
+	return 0
 }
 
 func (m CharacterMeta5Word) String() string {
@@ -274,16 +287,26 @@ func run(args *Arguments) error {
 	}
 	defer file.Close()
 
-	reader := bufio.NewReader(file)
-	val, err := reader.ReadByte()
+	//reader := bufio.NewReader(file)
+	//val, err := reader.ReadByte()
+	//if err != nil {
+	//	return fmt.Errorf("Error peeking: %w", err)
+	//}
+
+	//err = reader.UnreadByte()
+	//if err != nil {
+	//	return fmt.Errorf("Error unreading: %w", err)
+	//}
+
+	var val byte
+	err = binary.Read(file, binary.LittleEndian, &val)
 	if err != nil {
-		return fmt.Errorf("Error peeking: %w", err)
+		return fmt.Errorf("Error reading first byte: %w", err)
 	}
 
-	err = reader.UnreadByte()
-	if err != nil {
-		return fmt.Errorf("Error unreading: %w", err)
-	}
+	// Reset to beginning of file
+	file.Seek(0, 0)
+
 
 	var t FontFormat = FontFormat(val)
 	readOffset := 0
@@ -297,7 +320,7 @@ func run(args *Arguments) error {
 		//fmt.Println("extra header found")
 
 		exHeader = &ExtraHeader{}
-		err = binary.Read(reader, binary.LittleEndian, exHeader)
+		err = binary.Read(file, binary.LittleEndian, exHeader)
 		if err != nil {
 			return fmt.Errorf("Unable to read extra header: %w", err)
 		}
@@ -316,7 +339,7 @@ func run(args *Arguments) error {
 
 	header := &FontHeader{}
 	//fmt.Printf("headerSize: %d\n", binary.Size(header))
-	err = binary.Read(reader, binary.LittleEndian, header)
+	err = binary.Read(file, binary.LittleEndian, header)
 	if err != nil {
 		return fmt.Errorf("Unable to read header: %w", err)
 	}
@@ -336,7 +359,7 @@ func run(args *Arguments) error {
 	fmt.Fprintln(outlog, header)
 
 	widthTable := [256]byte{}
-	err = binary.Read(reader, binary.LittleEndian, &widthTable)
+	err = binary.Read(file, binary.LittleEndian, &widthTable)
 	if err != nil {
 		return fmt.Errorf("Unable to read width table: %w", err)
 	}
@@ -358,10 +381,10 @@ func run(args *Arguments) error {
 	metaTableOffset := readOffset
 	metaSize := binary.Size(CharacterMeta9700{})
 	if is9700 {
-		meta, err = parse9700Meta(reader, int(header.LastCharacter))
+		meta, err = parse9700Meta(file, int(header.LastCharacter))
 		fmt.Fprintln(outlog, "type: 9700")
 	} else {
-		meta, err = parse5WordMeta(reader, int(header.LastCharacter))
+		meta, err = parse5WordMeta(file, int(header.LastCharacter))
 		fmt.Fprintln(outlog, "type: 5Word")
 		metaSize = binary.Size(CharacterMeta5Word{})
 	}
@@ -369,15 +392,24 @@ func run(args *Arguments) error {
 	fmt.Fprintln(outlog, "meta len:", len(meta))
 	readOffset += metaSize * len(meta)
 
+	eot, err := file.Seek(0, 1)
+	fmt.Printf("end of table: $%04X\n", eot)
+	glyphStarts := make(map[int]int)
+
 	var firstGlyph CharacterMeta
 	firstGlyphId := -1
 	for i := 0; i < len(meta); i++ {
 		fmt.Fprintf(outlog, "[$%04X] $%02x %q\n", metaTableOffset+(i*metaSize), i, string(i))
-		fmt.Fprintln(outlog, meta[i])
-		if firstGlyph == nil && !meta[i].IsSpacing() {
-			firstGlyph = meta[i]
-			firstGlyphId = i
+		fmt.Fprint(outlog, meta[i])
+		if !meta[i].IsSpacing() {
+			if firstGlyph == nil {
+				firstGlyph = meta[i]
+				firstGlyphId = i
+			}
+			glyphStarts[i] = meta[i].Offset(eot)
+			fmt.Fprintf(outlog, "glyph addr:  $%04X\n", glyphStarts[i])
 		}
+		fmt.Fprintln(outlog, "")
 	}
 
 	if firstGlyph != nil {
@@ -392,13 +424,59 @@ func run(args *Arguments) error {
 	fmt.Fprintf(os.Stderr, "reading glyph at offset $%04X\n", readOffset)
 
 	raw := [256]byte{}
-	err = binary.Read(reader, binary.LittleEndian, &raw)
+	err = binary.Read(file, binary.LittleEndian, &raw)
 	if err != nil {
 		return fmt.Errorf("Error reading bitmap data: %w", err)
 	}
 	readOffset += binary.Size(raw)
 
-	err = writeImage(outputPrefix+"_char.png", raw[:], 16, 200)
+	// seek to end of table
+	//_, err := file.Seek(eot, 0)
+	//if err != nil {
+	//	return fmt.Errorf("seek eot error: %w", err)
+	//}
+
+	err = os.MkdirAll(outputPrefix+"_chars", 0755)
+	if err != nil {
+		return fmt.Errorf("unable to create output char directory: %w", err)
+	}
+
+	for id, m := range meta {
+		if m.IsSpacing() {
+			continue
+		}
+		fmt.Println("extracting", id)
+		char := m.(*CharacterMeta9700)
+		_, err = file.Seek(int64(char.Offset(eot)), 0)
+		if err != nil {
+			return fmt.Errorf("unable to seek to glyph start $%04X: %w", char.Offset(eot), err)
+		}
+
+		l := int(char.BottomOffset*-1) * int(char.UnknownE*-1)
+		buff := make([]byte, l)
+		_, err = file.Read(buff)
+		if err != nil {
+			return fmt.Errorf("error reading glyph bytes: %w", err)
+		}
+
+		filename := filepath.Join(outputPrefix+"_chars", fmt.Sprintf("%03d.png", id))
+		//if id == 34 {
+		//	err = writeImage(filename, buff[:], 16, int(char.BottomOffset*-1))
+		//} else {
+			err = writeImage(filename, buff[:], int(char.UnknownE*-1)*4, int(char.BottomOffset*-1))
+		//}
+		if err != nil {
+			return fmt.Errorf("error writing glyph image: %w", err)
+		}
+	}
+
+	//char := meta[33].(*CharacterMeta9700)
+	//bytesPerLine := int(char.UnknownE*-1)
+	//lines := int(char.BottomOffset*-1)
+	//fmt.Println("bytesPerLine:", bytesPerLine)
+	//fmt.Println("lines:", lines)
+	//fmt.Println("char.BottomOffset:", char.BottomOffset)
+	//err = writeImage(outputPrefix+"_char.png", raw[:], bytesPerLine*8, lines)
 
 	//fmt.Println(data)
 
@@ -441,6 +519,7 @@ func writeImage(filename string, raw []byte, width, height int) error {
 			if x >= width {
 				y++
 				x = 0
+				break
 			}
 		}
 	}
