@@ -26,6 +26,7 @@ type FontFormat byte
 const (
 	FF_5Word_Portrait   FontFormat = 0xA8
 	FF_5Word_Landscape  FontFormat = 0xD0
+	FF_5Word_Landscape2 FontFormat = 0x2F
 	FF_5Word_IPortrait  FontFormat = 0x58
 	FF_5Word_ILandscape FontFormat = 0xF8
 
@@ -82,6 +83,15 @@ func (o Orientation) String() string {
 	return "Unknown"
 }
 
+func IsOrientation(val byte) bool {
+	switch Orientation(val) {
+	case Portrait, Landscape, InvertedPortrait, InvertedLandscape:
+		return true
+	default:
+		return false
+	}
+}
+
 // 80 byte header, only new fonts saved in Elixir
 type ExtraHeader struct {
 	FontFormat FontFormat
@@ -114,7 +124,7 @@ func (h ExtraHeader) String() string {
 
 func (h ExtraHeader) Is9700() bool {
 	switch h.FontFormat {
-	case FF_5Word_Portrait, FF_5Word_Landscape, FF_5Word_IPortrait, FF_5Word_ILandscape, FF_5Word_Unknown:
+	case FF_5Word_Portrait, FF_5Word_Landscape, FF_5Word_Landscape2, FF_5Word_IPortrait, FF_5Word_ILandscape, FF_5Word_Unknown:
 		return false
 	default:
 		return true
@@ -134,8 +144,8 @@ type CharacterMeta9700 struct {
 	BottomOffset int8 // bitmap bottom offset from top of font bounds
 	UnknownE int8 // negated bytes per line?
 	//BitmapSize int16
-	CellWidth byte
-	UnknownG byte // accent?
+	CellWidth uint16
+	//UnknownG byte // accent?
 }
 
 func (m CharacterMeta9700) Offset(start int64) int {
@@ -149,14 +159,14 @@ func (m CharacterMeta9700) String() string {
 	}
 
 	sb := &strings.Builder{}
-	fmt.Fprintf(sb, "BlanksLeft:  $%02X %03d\n", m.BlanksLeft, m.BlanksLeft)
-	fmt.Fprintf(sb, "Spacing:     $%02X %03d %s\n", m.Spacing, m.Spacing, spaceStr)
-	fmt.Fprintf(sb, "GlyphOffset: $%04X %04d\n", m.GlyphOffset, m.GlyphOffset)
-	fmt.Fprintf(sb, "BottomOffset:    $%02X %03d\n", uint8(m.BottomOffset), m.BottomOffset)
-	fmt.Fprintf(sb, "UnknownE:    $%02X %03d\n", uint8(m.UnknownE), m.UnknownE)
+	fmt.Fprintf(sb, "BlanksLeft:   $%02X %3d\n", m.BlanksLeft, m.BlanksLeft)
+	fmt.Fprintf(sb, "Spacing:      $%02X %3d %s\n", m.Spacing, m.Spacing, spaceStr)
+	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
+	fmt.Fprintf(sb, "BottomOffset: $%02X %3d\n", uint8(m.BottomOffset), m.BottomOffset)
+	fmt.Fprintf(sb, "UnknownE:     $%02X %3d\n", uint8(m.UnknownE), m.UnknownE)
 	//fmt.Fprintf(sb, "BitmapSize:   $%02X %03d\n", m.BitmapSize, m.BitmapSize)
-	fmt.Fprintf(sb, "CellWidth:   $%02X %03d\n", m.CellWidth, m.CellWidth)
-	fmt.Fprintf(sb, "UnknownG:    $%02X %03d\n", m.UnknownG, m.UnknownG)
+	fmt.Fprintf(sb, "CellWidth:    $%04X %3d\n", m.CellWidth, m.CellWidth)
+	//fmt.Fprintf(sb, "UnknownG:    $%02X %03d\n", m.UnknownG, m.UnknownG)
 	return sb.String()
 }
 
@@ -169,35 +179,38 @@ func (m CharacterMeta9700) IsSpacing() bool {
 }
 
 type CharacterMeta5Word struct {
-	Unknown0 byte
-	Unknown1 byte
-	Unknown2 byte
-	Unknown3 byte
-	Unknown4 byte
-	Unknown5 byte
-	Unknown6 byte
-	Unknown7 byte
-	Unknown8 byte
-	Unknown9 byte
+	BlanksLeft uint8
+	Spacing byte
+	GlyphOffset uint16
+	//Unknown3 byte
+	Unknown45 uint16
+	//Unknown5 byte
+	Unknown67 uint16
+	//Unknown7 byte
+	CellWidth uint16
+	//Unknown9 byte
 }
 
 func (m CharacterMeta5Word) Offset(start int64) int {
-	return 0
+	return int(start) + (int(m.GlyphOffset) * 2)
 }
 
 func (m CharacterMeta5Word) String() string {
 	sb := &strings.Builder{}
 
-	fmt.Fprintf(sb, "Unknown0:   $%X\n", m.Unknown0)
-	fmt.Fprintf(sb, "Unknown1:   $%X\n", m.Unknown1)
-	fmt.Fprintf(sb, "Unknown2:   $%X\n", m.Unknown2)
-	fmt.Fprintf(sb, "Unknown3:   $%X\n", m.Unknown3)
-	fmt.Fprintf(sb, "Unknown4:   $%X\n", m.Unknown4)
-	fmt.Fprintf(sb, "Unknown5:   $%X\n", m.Unknown5)
-	fmt.Fprintf(sb, "Unknown6:   $%X\n", m.Unknown6)
-	fmt.Fprintf(sb, "Unknown7:   $%X\n", m.Unknown7)
-	fmt.Fprintf(sb, "Unknown8:   $%X\n", m.Unknown8)
-	fmt.Fprintf(sb, "Unknown9:   $%X\n", m.Unknown9)
+	spaceStr := "Space"
+	if m.Spacing == 0x00 {
+		spaceStr = "Non-Blank"
+	}
+
+	fmt.Fprintf(sb, "BlanksLeft:  $%02X\n", m.BlanksLeft)
+	fmt.Fprintf(sb, "Spacing:     $%02X %s\n", m.Spacing, spaceStr)
+	fmt.Fprintf(sb, "GlyphOffset: $%04X\n", m.GlyphOffset)
+	fmt.Fprintf(sb, "Unknown45:   $%04X %3d\n", m.Unknown45, int16(m.Unknown45))
+	//fmt.Fprintf(sb, "Unknown5:    $%02X\n", m.Unknown5)
+	fmt.Fprintf(sb, "Unknown67:   $%04X %03d\n", m.Unknown67, int16(m.Unknown67))
+	//fmt.Fprintf(sb, "Unknown7:    $%02X\n", m.Unknown7)
+	fmt.Fprintf(sb, "CellWidth:   $%04X\n", m.CellWidth)
 
 	return sb.String()
 }
@@ -207,8 +220,7 @@ func (m CharacterMeta5Word) Is5Word() bool {
 }
 
 func (m CharacterMeta5Word) IsSpacing() bool {
-	// TODO: figure out if this is correct (probably isn't)
-	return m.Unknown1 == 0x80
+	return m.Spacing == 0x80
 }
 
 type FontHeader struct {
@@ -253,8 +265,7 @@ func (h FontHeader) String() string {
 
 type Arguments struct {
 	Input string `arg:"positional,required"`
-	DataOffset int `arg:"--data-offset,-d"`
-	WidthOffset int `arg:"--width-offset,-w"`
+	OutputDir string `arg:"--dir"`
 }
 
 func main() {
@@ -272,6 +283,13 @@ func run(args *Arguments) error {
 	outputPrefix := filepath.Base(args.Input)
 	outputPrefix = outputPrefix[0:len(outputPrefix)-len(filepath.Ext(outputPrefix))]
 	//fmt.Fprintf(os.Stderr, "outputPrefix: %s\n", outputPrefix)
+	if args.OutputDir != "" {
+		outputPrefix = filepath.Join(args.OutputDir, outputPrefix)
+		err := os.MkdirAll(args.OutputDir, 0755)
+		if err != nil {
+			return fmt.Errorf("unable to create output directory: %w", err)
+		}
+	}
 
 	outlog, err := os.Create(outputPrefix+"_output.txt")
 	if err != nil {
@@ -305,17 +323,11 @@ func run(args *Arguments) error {
 	file.Seek(0, 0)
 
 
-	var t FontFormat = FontFormat(val)
+	//var t FontFormat = FontFormat(val)
 	readOffset := 0
 
 	var exHeader *ExtraHeader
-	switch t {
-	case FF_5Word_Portrait, FF_5Word_Landscape, FF_5Word_IPortrait, FF_5Word_ILandscape,
-		 FF_9700_Portrait, FF_9700_Portrait2, FF_9700_Landscape, FF_9700_IPortrait,
-		 FF_9700_ILandscape, FF_5Word_Unknown:
-
-		//fmt.Println("extra header found")
-
+	if !IsOrientation(val) {
 		exHeader = &ExtraHeader{}
 		err = binary.Read(file, binary.LittleEndian, exHeader)
 		if err != nil {
@@ -323,16 +335,32 @@ func run(args *Arguments) error {
 		}
 
 		readOffset += binary.Size(exHeader)
-		//fmt.Printf("Filler: %v\n", exHeader.Filler)
-		//fmt.Printf("End: $%02X\n", exHeader.End)
-		//fmt.Printf("size: %d\n", binary.Size(exHeader))
-
-	case FontFormat(Portrait), FontFormat(Landscape), FontFormat(InvertedPortrait), FontFormat(InvertedLandscape):
-		// normal header
-	
-	default:
-		return fmt.Errorf("Unknown font type: $%02X", val)
 	}
+	//switch t.(type) {
+	//case FF_5Word_Portrait, FF_5Word_Landscape, FF_5Word_IPortrait, FF_5Word_ILandscape,
+	//	 FF_9700_Portrait, FF_9700_Portrait2, FF_9700_Landscape, FF_9700_IPortrait,
+	//	 FF_9700_ILandscape, FF_5Word_Unknown:
+	//case FontFormat:
+
+	//	//fmt.Println("extra header found")
+
+	//	exHeader = &ExtraHeader{}
+	//	err = binary.Read(file, binary.LittleEndian, exHeader)
+	//	if err != nil {
+	//		return fmt.Errorf("Unable to read extra header: %w", err)
+	//	}
+
+	//	readOffset += binary.Size(exHeader)
+	//	//fmt.Printf("Filler: %v\n", exHeader.Filler)
+	//	//fmt.Printf("End: $%02X\n", exHeader.End)
+	//	//fmt.Printf("size: %d\n", binary.Size(exHeader))
+
+	//case FontFormat(Portrait), FontFormat(Landscape), FontFormat(InvertedPortrait), FontFormat(InvertedLandscape):
+	//	// normal header
+	//
+	//default:
+	//	return fmt.Errorf("Unknown font type: $%02X", val)
+	//}
 
 	header := &FontHeader{}
 	//fmt.Printf("headerSize: %d\n", binary.Size(header))
@@ -418,20 +446,24 @@ func run(args *Arguments) error {
 	//discarded := 100
 	//reader.Discard(discarded) // skip past '!' for now.
 	//readOffset += discarded
-	fmt.Fprintf(os.Stderr, "reading glyph at offset $%04X\n", readOffset)
+	//fmt.Fprintf(os.Stderr, "reading glyph at offset $%04X\n", readOffset)
 
-	raw := [256]byte{}
-	err = binary.Read(file, binary.LittleEndian, &raw)
-	if err != nil {
-		return fmt.Errorf("Error reading bitmap data: %w", err)
-	}
-	readOffset += binary.Size(raw)
+	//raw := [256]byte{}
+	//err = binary.Read(file, binary.LittleEndian, &raw)
+	//if err != nil {
+	//	return fmt.Errorf("Error reading bitmap data: %w", err)
+	//}
+	//readOffset += binary.Size(raw)
 
 	// seek to end of table
 	//_, err := file.Seek(eot, 0)
 	//if err != nil {
 	//	return fmt.Errorf("seek eot error: %w", err)
 	//}
+
+	if !is9700 {
+		return nil
+	}
 
 	err = os.MkdirAll(outputPrefix+"_chars", 0755)
 	if err != nil {
@@ -589,41 +621,3 @@ func parse5WordMeta(reader io.Reader, lastChar int) ([]CharacterMeta, error) {
 	return meta, nil
 }
 
-//func (data XeroxFont) WriteImage(widthOffset, dataOffset int) error {
-//	img := image.NewRGBA(image.Rect(0, 0, int(data.CellWidthTable[widthOffset]), int(data.Header.PixelHeight)))
-//	x, y := 0, 0
-//	on := color.White
-//	off := color.Black
-//
-//	for _, b := range data.Data[dataOffset] {
-//		for i := 7; i >= 0; i-- {
-//			v := (b >> i) & 0x01
-//			if v == 1 {
-//				img.Set(x, y, on)
-//			} else {
-//				img.Set(x, y, off)
-//			}
-//			x++
-//
-//			if x >= int(data.CellWidthTable[widthOffset]) {
-//				y++
-//				x = 0
-//			}
-//		}
-//	}
-//
-//	dir := filepath.Join("images", fmt.Sprintf("%03d", widthOffset))
-//	filename := filepath.Join(dir, fmt.Sprintf("%03d_%03d.png", widthOffset, dataOffset))
-//	outfile, err := os.Create(filename)
-//	if err != nil {
-//		return fmt.Errorf("unable to create %s: %w", filename, err)
-//	}
-//	defer outfile.Close()
-//
-//	err = png.Encode(outfile, img)
-//	if err != nil {
-//		return fmt.Errorf("unable to encode %s: %w", filename, err)
-//	}
-//
-//	return nil
-//}
