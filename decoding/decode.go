@@ -8,6 +8,7 @@ import (
 	//"bufio"
 	"encoding/binary"
 	"strings"
+	//"math"
 	//"unsafe"
 	//"image"
 	//"image/color"
@@ -129,12 +130,10 @@ type CharacterMeta interface {
 type CharacterMeta9700 struct {
 	BlanksLeft byte
 	Spacing byte // nonblank = $00, spacing = $80, null = ??
-	//UnknownB byte
-	//UnknownC byte
 	GlyphOffset uint16  // halved.  multiply by 2 for byte offset.
 	BottomOffset int8 // bitmap bottom offset from top of font bounds
 	UnknownE int8 // negated bytes per line?
-	//UnknownDE uint16
+	//BitmapSize int16
 	CellWidth byte
 	UnknownG byte // accent?
 }
@@ -152,12 +151,10 @@ func (m CharacterMeta9700) String() string {
 	sb := &strings.Builder{}
 	fmt.Fprintf(sb, "BlanksLeft:  $%02X %03d\n", m.BlanksLeft, m.BlanksLeft)
 	fmt.Fprintf(sb, "Spacing:     $%02X %03d %s\n", m.Spacing, m.Spacing, spaceStr)
-	//fmt.Fprintf(sb, "UnknownB:    $%02X %03d\n", m.UnknownB, m.UnknownB)
-	//fmt.Fprintf(sb, "UnknownC:    $%02X %03d\n", m.UnknownC, m.UnknownC)
 	fmt.Fprintf(sb, "GlyphOffset: $%04X %04d\n", m.GlyphOffset, m.GlyphOffset)
-	//fmt.Fprintf(sb, "UnknownDE:    $%04X %04d\n", m.UnknownDE, m.UnknownDE)
 	fmt.Fprintf(sb, "BottomOffset:    $%02X %03d\n", uint8(m.BottomOffset), m.BottomOffset)
 	fmt.Fprintf(sb, "UnknownE:    $%02X %03d\n", uint8(m.UnknownE), m.UnknownE)
+	//fmt.Fprintf(sb, "BitmapSize:   $%02X %03d\n", m.BitmapSize, m.BitmapSize)
 	fmt.Fprintf(sb, "CellWidth:   $%02X %03d\n", m.CellWidth, m.CellWidth)
 	fmt.Fprintf(sb, "UnknownG:    $%02X %03d\n", m.UnknownG, m.UnknownG)
 	return sb.String()
@@ -452,19 +449,37 @@ func run(args *Arguments) error {
 			return fmt.Errorf("unable to seek to glyph start $%04X: %w", char.Offset(eot), err)
 		}
 
+		//abs := char.BitmapSize
+		//if abs < 0 {
+		//	abs *= -1
+		//}
+		//height := abs & 0x1FF
+		//width := abs >> 9
+
 		l := int(char.BottomOffset*-1) * int(char.UnknownE*-1)
+		if l <= 0 {
+			//return fmt.Errorf("invalid length: %d", abs)
+			return fmt.Errorf("invalid length: (%d*-1) * (%d*-1) %d", char.BottomOffset, char.UnknownE, l)
+		}
 		buff := make([]byte, l)
+		//buff := make([]byte, abs)
 		_, err = file.Read(buff)
 		if err != nil {
 			return fmt.Errorf("error reading glyph bytes: %w", err)
 		}
 
-		filename := filepath.Join(outputPrefix+"_chars", fmt.Sprintf("%03d.png", id))
-		//if id == 34 {
-		//	err = writeImage(filename, buff[:], 16, int(char.BottomOffset*-1))
-		//} else {
-			err = writeImage(filename, buff[:], int(char.UnknownE*-1)*4, int(char.BottomOffset*-1))
-		//}
+		if len(buff)-1 % 2 != 0 {
+			buff = append(buff, 0x00)
+		}
+
+		for i := 0; i < len(buff)-1; i+=2 {
+			buff[i], buff[i+1] = buff[i+1], buff[i]
+		}
+
+
+		filename := filepath.Join(outputPrefix+"_chars", fmt.Sprintf("%03d_0x%02X.png", id, id))
+		err = writeImage(filename, buff[:], int(char.UnknownE*-1)*4, int(char.BottomOffset*-1))
+		//err = writeImage(filename, buff[:], int(width), int(height))
 		if err != nil {
 			return fmt.Errorf("error writing glyph image: %w", err)
 		}
@@ -502,25 +517,32 @@ func writeWidths(filename string, table []byte) error {
 }
 
 func writeImage(filename string, raw []byte, width, height int) error {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	var img *image.RGBA
+	if width % 8 != 0 {
+		img = image.NewRGBA(image.Rect(0, 0, width+4, height))
+	} else {
+		img = image.NewRGBA(image.Rect(0, 0, width+4, height))
+	}
 	x, y := 0, 0
 	on := color.White
 	off := color.Black
 
 	for _, b := range raw {
+		//swapped := (b << 4) | (b >> 4)
 		for i := 7; i > -1; i-- {
 			v := (b >> i) & 0x01
+			//v := (swapped >> i) & 01
 			if v == 1 {
 				img.Set(x, y, on)
 			} else {
 				img.Set(x, y, off)
 			}
 			x++
-			if x >= width {
-				y++
-				x = 0
-				break
-			}
+		}
+		if x >= width {
+			y++
+			x = 0
+			//break
 		}
 	}
 
