@@ -187,6 +187,14 @@ func run(args *Arguments) error {
 	}
 	readOffset += binary.Size(widthTable)
 
+	//lastWidth := 0
+	//for id, w := range widthTable {
+	//	if w != 0 {
+	//		lastWidth = id+1
+	//	}
+	//}
+	//fmt.Printf("lastWidth: %d\n", lastWidth)
+
 	err = writeWidths(outputPrefix+"_widths.txt", widthTable[:])
 	if err != nil {
 		return fmt.Errorf("Unable to write width table: %w", err)
@@ -199,26 +207,46 @@ func run(args *Arguments) error {
 		is9700 = exHeader.Is9700()
 	}
 
+	var metaCount int = int(header.LastCharacter)
+	if header.LastCharacter < 128 {
+		metaCount = 128
+	} else if header.LastCharacter % 128 != 0 {
+		mod := int(header.LastCharacter) % 128
+		metaCount = int(header.LastCharacter) + (128 - mod)
+	}
+
+	//metaCount := int(header.LastCharacter % 128) + int(header.LastCharacter)
+	fmt.Println("metaCount:", metaCount)
+
 	metaTableOffset := readOffset
 	metaSize := binary.Size(CharacterMeta9700{})
 	if is9700 {
-		meta, err = parse9700Meta(file, int(header.LastCharacter))
+		//meta, err = parse9700Meta(file, int(header.LastCharacter))
+		//meta, err = parse9700Meta(file, lastWidth)
+		meta, err = parse9700Meta(file, metaCount)
 		fmt.Fprintln(outlog, "type: 9700")
 	} else {
-		meta, err = parse5WordMeta(file, int(header.LastCharacter))
+		//meta, err = parse5WordMeta(file, int(header.LastCharacter))
+		//meta, err = parse5WordMeta(file, lastWidth)
+		meta, err = parse5WordMeta(file, metaCount)
 		fmt.Fprintln(outlog, "type: 5Word")
 		metaSize = binary.Size(CharacterMeta5Word{})
 	}
 
 	fmt.Fprintln(outlog, "meta len:", len(meta))
 	fmt.Fprintln(outlog, "")
-	readOffset += metaSize * len(meta)
 
-	eot, err := file.Seek(0, 1)
-	fmt.Printf("end of table: $%04X\n", eot)
+	//eot, err := file.Seek(0, 1)
+	//fmt.Printf("end of table: $%04X\n", eot)
+	//fmt.Printf("readOffset = readOffset + (metaSize * lastWidth): $%04X = $%04X + (%d * %d)\n",
+	//	readOffset + (metaSize*lastWidth), readOffset, metaSize, lastWidth)
 	glyphStarts := make(map[int]int)
 
-	for i := 0; i < len(meta); i++ {
+	//readOffset += metaSize * lastWidth
+	readOffset += metaSize * metaCount
+
+	//for i := 0; i < len(meta); i++ {
+	for i := 0; i < int(header.LastCharacter); i++ {
 		if args.IgnoreSpaces && meta[i].IsSpacing() {
 			continue
 		}
@@ -227,7 +255,7 @@ func run(args *Arguments) error {
 		fmt.Fprint(outlog, meta[i])
 
 		if !meta[i].IsSpacing() {
-			glyphStarts[i] = meta[i].Offset(eot)
+			glyphStarts[i] = meta[i].Offset(int64(readOffset))
 			fmt.Fprintf(outlog, "glyph addr:  $%04X\n", glyphStarts[i])
 		}
 		fmt.Fprintln(outlog, "")
@@ -250,7 +278,7 @@ func run(args *Arguments) error {
 		}
 		fmt.Println("extracting", id)
 		char := m.(*CharacterMeta9700)
-		character, err := From9700(char, file, eot)
+		character, err := From9700(char, file, int64(readOffset))
 		if err != nil {
 			return fmt.Errorf("error reading character data: %w", err)
 		}
