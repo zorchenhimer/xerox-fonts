@@ -73,30 +73,27 @@ func From9700(raw *CharacterMeta9700, reader io.ReadSeeker, eot int64) (*Charact
 func (c *Character) WriteImage(filename string) error {
 	var img *image.RGBA
 	if c.width % 8 != 0 {
-		img = image.NewRGBA(image.Rect(0, 0, c.width+4, c.height))
+		img = image.NewRGBA(image.Rect(0, 0, c.height, c.width+4))
 	} else {
-		img = image.NewRGBA(image.Rect(0, 0, c.width, c.height))
+		img = image.NewRGBA(image.Rect(0, 0, c.height, c.width))
 	}
-	x, y := 0, 0
+	x, y := 0, c.height
 	on := color.White
 	off := color.Black
 
 	for _, b := range c.glyph {
-		//swapped := (b << 4) | (b >> 4)
 		for i := 7; i > -1; i-- {
 			v := (b >> i) & 0x01
-			//v := (swapped >> i) & 01
 			if v == 1 {
-				img.Set(x, y, on)
+				img.Set(c.height-y, c.width-x, on)
 			} else {
-				img.Set(x, y, off)
+				img.Set(c.height-y, c.width-x, off)
 			}
 			x++
 		}
 		if x >= c.width {
-			y++
+			y--
 			x = 0
-			//break
 		}
 	}
 
