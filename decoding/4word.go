@@ -35,7 +35,7 @@ func (m CharacterMeta9700) Offset(start int64) int {
 
 func (m CharacterMeta9700) String() string {
 	sb := &strings.Builder{}
-	fmt.Fprintf(sb, "BlanksLeft:   $%04X %3d\n", m.BlanksLeft & 0x7FF, m.BlanksLeft & 0x7FF)
+	fmt.Fprintf(sb, "BlanksLeft:   $%04X %3d\n", m.BlanksLeft & 0x7FFF, m.BlanksLeft & 0x7FFF)
 	fmt.Fprintf(sb, "Spacing:      %t\n", m.IsSpace())
 	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
 	fmt.Fprintf(sb, "BitmapSize:   $%04X %4d\n", m.BitmapSize, m.BitmapSize)
