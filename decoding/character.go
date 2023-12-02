@@ -85,9 +85,9 @@ func (c *Character) WriteImage(filename string) error {
 		for i := 7; i > -1; i-- {
 			v := (b >> i) & 0x01
 			if v == 1 {
-				img.Set(c.height-y, c.width-x, on)
+				img.Set(c.height-y, c.width-x-1, on)
 			} else {
-				img.Set(c.height-y, c.width-x, off)
+				img.Set(c.height-y, c.width-x-1, off)
 			}
 			x++
 		}
