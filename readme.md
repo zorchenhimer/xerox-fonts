@@ -10,15 +10,22 @@ bytes per character.
 | Extra Header (optional)   | 80 |
 | Main Header               | 256 |
 | Width Table               | 256 |
-| Character Metadata        | `last character * 8` or `last character * 10` |
-| Character Glyph Bitmaps   | ??? |
+| Character Metadata        | variable |
+| Character Glyph Bitmaps   | variable |
 
 The width table is a uint8 table of character widths.  Most likely for kerning
 purposes.
 
+The character metadata table size is the last character value rounded up to the
+nearest 128, plus one.  The glyph bitmaps start immediately after this table.
+
+The bitmap table only contains bitmaps for characters that do not have the
+spacing property set.  Spacing characters are skipped over.
+
 ## Extra Header
 
-This is an optional header.  If present, it will start at `0x00` bumping the main header to 0x80.
+This is an optional header padded to 128 bytes.  If present, it will start at
+`0x00` bumping the main header to `0x80`.
 
 | Type | Description |
 | -------- | -------- |
@@ -28,7 +35,7 @@ This is an optional header.  If present, it will start at `0x00` bumping the mai
 | `[6]byte` | Font Name B |
 | `[4]byte` | Unknown |
 | `[12]byte` | Unknown |
-| `[81]byte` | Unknown/filler |
+| `[81]byte` | Padding |
 | `byte`    | End of header (always `0x2A`) |
 
 ### Extra Header - Font Formats
@@ -57,15 +64,16 @@ byte can be used to determine if the extra header is present.
 
 ## Main Header
 
-This header will be at `0x00` or `0x80` if the Extra header is present.
+This header will be at `0x00` or `0x80` if the Extra header is present.  This
+header is padded to 256 bytes.
 
 | Type      | Description |
 | --------- | -------- |
-| `byte`      | Orientation |
-| `byte`      | Font Type (fixed or proportional) |
+| `byte`      | Orientation (see table) |
+| `byte`      | Font Type (see table) |
 | `uint16`    | Pixel height |
 | `uint16`    | Line spacing |
-| `uint16`    | Fixed width |
+| `uint16`    | Fixed width (ignored if proportional font) |
 | `uint16`    | Distance below |
 | `uint16`    | Distance above |
 | `uint16`    | Distance leading |
@@ -77,7 +85,8 @@ This header will be at `0x00` or `0x80` if the Extra header is present.
 | `[2]byte`   | Unknown |
 | `[2]byte`   | Version |
 | `[10]byte`  | Library |
-| `[210]byte` | Unknown/padding |
+| `[210]byte` | Padding |
+
 
 ### Main Header - Orientations
 
@@ -87,6 +96,13 @@ This header will be at `0x00` or `0x80` if the Extra header is present.
 | `0x4C`   | L     | Landscape          |
 | `0x49`   | I     | Inverted Portrait  |
 | `0x4A`   | J     | Inverted Landscape |
+
+### Main Header - Fonts Types
+
+| Value    | ASCII | Description  |
+| -------- | ----- | --------     |
+| `0x50`   | P     | Proportional |
+| `0x46`   | F     | Fixed        |
 
 ## Character Metadata
 
@@ -105,3 +121,8 @@ are in pixels.
 
 Blanks left is `BlanksLeft & 0x7FFF` and Spacing is a boolean determited by
 `BlanksLeft & 0x8000`.
+
+## Glyph Bitmaps
+
+The size, in bytes, of each glyph is `(abs(BitmapSize >> 9)*8) *
+(abs(BitmapSize) & 0x1FF)`
