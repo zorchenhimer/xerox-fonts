@@ -48,7 +48,7 @@ func (m CharacterMeta5Word) Is5Word() bool {
 	return true
 }
 
-func (m CharacterMeta5Word) IsSpacing() bool {
+func (m CharacterMeta5Word) IsSpace() bool {
 	return m.Spacing == 0x80
 }
 

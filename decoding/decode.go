@@ -3,20 +3,8 @@ package main
 import (
 	"os"
 	"fmt"
-	//"io"
-	//"bytes"
-	//"bufio"
 	"encoding/binary"
-	//"strings"
-	//"math"
-	//"unsafe"
-	//"image"
-	//"image/color"
-	//"image/png"
 	"path/filepath"
-	//"image"
-	//"image/color"
-	//"image/png"
 
 	"github.com/alexflint/go-arg"
 )
@@ -94,7 +82,7 @@ func IsOrientation(val byte) bool {
 
 type CharacterMeta interface {
 	Is5Word() bool
-	IsSpacing() bool
+	IsSpace() bool
 	Offset(start int64) int
 }
 
@@ -187,18 +175,10 @@ func run(args *Arguments) error {
 	}
 	readOffset += binary.Size(widthTable)
 
-	//lastWidth := 0
-	//for id, w := range widthTable {
-	//	if w != 0 {
-	//		lastWidth = id+1
-	//	}
+	//err = writeWidths(outputPrefix+"_widths.txt", widthTable[:])
+	//if err != nil {
+	//	return fmt.Errorf("Unable to write width table: %w", err)
 	//}
-	//fmt.Printf("lastWidth: %d\n", lastWidth)
-
-	err = writeWidths(outputPrefix+"_widths.txt", widthTable[:])
-	if err != nil {
-		return fmt.Errorf("Unable to write width table: %w", err)
-	}
 
 	var meta []CharacterMeta
 
@@ -247,14 +227,14 @@ func run(args *Arguments) error {
 
 	//for i := 0; i < len(meta); i++ {
 	for i := 0; i < int(header.LastCharacter); i++ {
-		if args.IgnoreSpaces && meta[i].IsSpacing() {
+		if args.IgnoreSpaces && meta[i].IsSpace() {
 			continue
 		}
 
 		fmt.Fprintf(outlog, "[$%04X] $%02x %q\n", metaTableOffset+(i*metaSize), i, string(i))
 		fmt.Fprint(outlog, meta[i])
 
-		if !meta[i].IsSpacing() {
+		if !meta[i].IsSpace() {
 			glyphStarts[i] = meta[i].Offset(int64(readOffset))
 			fmt.Fprintf(outlog, "glyph addr:  $%04X\n", glyphStarts[i])
 		}
@@ -273,7 +253,7 @@ func run(args *Arguments) error {
 	}
 
 	for id, m := range meta {
-		if m.IsSpacing() {
+		if m.IsSpace() {
 			continue
 		}
 		fmt.Println("extracting", id)

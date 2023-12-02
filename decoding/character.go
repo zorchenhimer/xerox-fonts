@@ -25,14 +25,21 @@ func From5Word(raw *CharacterMeta5Word) (*Character, error) {
 	return nil, fmt.Errorf("From5Word() not implemented")
 }
 
+func abs(x int16) int16 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func From9700(raw *CharacterMeta9700, reader io.ReadSeeker, eot int64) (*Character, error) {
 	c := &Character{
-		BlanksLeft: int(raw.BlanksLeft),
+		BlanksLeft: int(raw.BlanksLeft & 0x7FFF),
 		GlyphOffset: int(raw.GlyphOffset),
 	}
 
-	if raw.Spacing == 0x80 {
-		c.IsSpace = true
+	c.IsSpace = raw.IsSpace()
+	if c.IsSpace {
 		return c, nil
 	}
 
@@ -41,16 +48,10 @@ func From9700(raw *CharacterMeta9700, reader io.ReadSeeker, eot int64) (*Charact
 		return nil, fmt.Errorf("unable to seek to glyph start $%04X: %w", raw.Offset(eot), err)
 	}
 
-	c.width = int((int8(raw.UnknownE) >> 1)) * -8
-	//fmt.Println("bitWidth:", bitWidth)
-	//c.width = bitwidth
+	c.width = int(abs(raw.BitmapSize >> 9))*8
+	c.height = int(abs(raw.BitmapSize) & 0x1FF)
 
-	l := int(raw.BottomOffset*-1) * int(raw.UnknownE*-1)
-	if l <= 0 {
-		return nil, fmt.Errorf("invalid length: (%d*-1) * (%d*-1) %d", raw.BottomOffset, raw.UnknownE, l)
-	}
-
-	c.glyph = make([]byte, l)
+	c.glyph = make([]byte, c.width*c.height)
 	_, err = reader.Read(c.glyph)
 	if err != nil {
 		return nil, fmt.Errorf("error reading glyph bytes: %w", err)
@@ -63,9 +64,6 @@ func From9700(raw *CharacterMeta9700, reader io.ReadSeeker, eot int64) (*Charact
 	for i := 0; i < len(c.glyph)-1; i+=2 {
 		c.glyph[i], c.glyph[i+1] = c.glyph[i+1], c.glyph[i]
 	}
-
-	//c.width = int(raw.UnknownE*-1)*4
-	c.height = int(raw.BottomOffset*-1)
 
 	return c, nil
 }
