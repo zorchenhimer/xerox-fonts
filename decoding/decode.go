@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"encoding/binary"
 	"path/filepath"
-	"image"
-	"image/draw"
 	"image/color"
 	"image/png"
 
@@ -280,7 +278,13 @@ func run(args *Arguments) error {
 		}
 	}
 
-	err = drawText(outputPrefix+"_sample.png", chars, header, "The quick brown fox jumps over the lazy dog")
+	font := &Font{
+		Header: header,
+		Characters: chars,
+	}
+
+	//err = drawText(outputPrefix+"_sample.png", font, "The quick brown fox jumps over the lazy dog.\nThe quick brown fox jumps over the lazy dog!")
+	err = drawText(outputPrefix+"_sample.png", font, testString)
 	if err != nil {
 		return fmt.Errorf("Error drawing text: %w", err)
 	}
@@ -288,55 +292,9 @@ func run(args *Arguments) error {
 	return nil
 }
 
-func fromPng(filename string) (image.Image, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return png.Decode(file)
-}
-
-func drawText(filename string, chars map[rune]*Character, header *FontHeader, text string) error {
+func drawText(filename string, font *Font, text string) error {
 	fmt.Println("drawing sample to", filename)
-	line := []*Character{}
-
-	for _, r := range []rune(text) {
-		c, ok := chars[r]
-		if !ok {
-			return fmt.Errorf("Character for rune %c (0x%02X) doesn't exist", r, r)
-		}
-
-		line = append(line, c)
-	}
-
-	//gr, err := fromPng("gradient.png")
-	//if err != nil {
-	//	return err
-	//}
-
-	img := image.NewRGBA(image.Rect(0, 0, 1200, 200))
-	//offset := image.Rect(0, 100, 1200, 200)
-	baseline := 100
-	offset := 100
-
-	red := color.RGBA{255, 0, 0, 255}
-	//blue := color.RGBA{0, 0, 255, 255}
-	for i := 0; i < img.Bounds().Max.X; i++ {
-		img.Set(i, baseline, red)
-	}
-
-	maxHeight := int(header.DistanceBelow) + int(header.DistanceAbove)
-
-	for _, c := range line {
-		top := baseline - (c.Width() - (maxHeight - c.BlanksLeft)) - int(header.DistanceAbove)
-
-		draw.Draw(img, image.Rect(offset, top, img.Bounds().Max.X, img.Bounds().Max.Y), c.Image(), image.Pt(0, 0), draw.Over)
-		//draw.DrawMask(img, image.Rect(offset, top, img.Bounds().Max.X, img.Bounds().Max.Y), gr, image.Pt(200+offset, 0), c.Image(), image.Pt(0, 0), draw.Over)
-
-		offset += c.CellWidth
-	}
+	img := font.Render(color.Black, text)
 
 	outfile, err := os.Create(filename)
 	if err != nil {
@@ -363,3 +321,61 @@ func writeWidths(filename string, table []byte) error {
 	}
 	return nil
 }
+
+var testString = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sollicitudin arcu
+sed pulvinar tristique. Maecenas consectetur pulvinar tempus. Pellentesque ac
+auctor ex. Etiam vel molestie felis. Nullam scelerisque nisi et egestas
+bibendum. Proin rutrum, ante sit amet imperdiet volutpat, urna ex convallis
+velit, ut porta nisl ex molestie dolor. Aliquam rhoncus pretium felis sed
+cursus. Quisque ornare, turpis et dignissim tincidunt, velit mi rutrum mauris,
+et condimentum arcu ipsum vitae lacus. Cras a purus ac urna interdum pharetra
+interdum et est. Fusce condimentum neque mauris, id elementum erat dapibus sit
+amet. Fusce eu diam viverra, efficitur augue et, mollis ex. Phasellus facilisis
+enim non mi fermentum, sit amet sagittis lacus ultricies. Sed maximus, justo a
+euismod volutpat, est augue venenatis lacus, eget facilisis dui felis fermentum
+libero. Aenean sollicitudin consectetur sodales.
+
+Ut eget euismod velit, non pellentesque nunc. Pellentesque volutpat tellus
+interdum rhoncus fringilla. Quisque luctus leo vel lectus malesuada pretium.
+Mauris semper pretium metus, at eleifend metus mattis in. Duis sit amet nulla
+suscipit, cursus nisl eu, laoreet nisl. Nunc quis urna sollicitudin, imperdiet
+mauris in, volutpat felis. Vivamus imperdiet massa et risus euismod volutpat.
+Ut cursus elit a dolor condimentum, in posuere orci ornare. Donec faucibus eros
+at molestie elementum. In porttitor nunc id nisi tempus dapibus. Phasellus a
+lorem quam. Class aptent taciti sociosqu ad litora torquent per conubia nostra,
+per inceptos himenaeos. Nulla felis nibh, luctus sit amet purus vel, lobortis
+vestibulum nulla.
+
+Proin pretium sem ac bibendum venenatis. Aliquam non velit a nibh finibus
+facilisis et at quam. Donec ullamcorper cursus metus egestas laoreet. Phasellus
+tellus lacus, luctus eget nunc eget, porta pretium tortor. Nulla facilisi. Nam
+cursus, justo eu dictum efficitur, justo nisi consequat arcu, nec viverra
+sapien libero vitae eros. Pellentesque interdum diam quis ante tempor, in
+rutrum metus tempus. Morbi posuere elit vel dolor congue, et posuere purus
+mollis. Pellentesque habitant morbi tristique senectus et netus et malesuada
+fames ac turpis egestas. Donec pulvinar fermentum mauris.
+
+Curabitur laoreet augue at velit semper maximus. Cras tempor purus lorem, eu
+viverra magna mollis sed. Mauris venenatis neque non arcu commodo, non
+ultricies odio cursus. Duis ut erat ipsum. Donec dapibus mattis lorem quis
+sagittis. Vivamus vel dapibus risus. Donec a dolor pulvinar, ornare eros et,
+tempus magna. In vel nibh mollis, suscipit nibh nec, sagittis tellus. Nulla
+placerat diam ipsum, eget auctor sapien suscipit et. Vestibulum posuere
+pulvinar mauris, eu congue est interdum sed. Sed pretium dui quis ex tempus,
+eget gravida magna consequat. Phasellus eros velit, rhoncus consectetur
+ultricies et, blandit id mauris. Suspendisse dapibus lorem eu consequat
+sodales. Integer non nisl sodales, fermentum mauris ut, cursus ante. Vestibulum
+congue orci ut porttitor elementum. Sed nec neque commodo, pellentesque urna
+at, tempor ligula.
+
+Suspendisse ac lacus suscipit, iaculis lorem eu, consectetur lectus. Aenean
+efficitur maximus leo quis maximus. Nullam aliquet lacus condimentum, accumsan
+erat ut, eleifend dui. Phasellus a gravida sapien, sed iaculis quam. In et orci
+et nulla eleifend tincidunt. Fusce id tempor lorem, rutrum pellentesque felis.
+Ut rutrum lacus a sagittis scelerisque. Ut varius cursus volutpat. Aenean diam
+massa, efficitur sit amet vehicula at, mattis pulvinar nunc. Vestibulum turpis
+ante, fermentum ac ullamcorper at, pulvinar ac lorem. Duis venenatis sagittis
+turpis, et semper orci. Nulla convallis augue dolor, vel efficitur metus
+convallis vitae. Maecenas lacinia laoreet vulputate. Donec dignissim elit ut
+velit molestie, a blandit quam laoreet. Class aptent taciti sociosqu ad litora
+torquent per conubia nostra, per inceptos himenaeos. Quisque ac mollis diam.`
