@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"encoding/binary"
 	"path/filepath"
+	"image"
+	"image/draw"
+	"image/color"
+	"image/png"
 
 	"github.com/alexflint/go-arg"
 )
@@ -252,15 +256,21 @@ func run(args *Arguments) error {
 		return fmt.Errorf("unable to create output char directory: %w", err)
 	}
 
+	chars := make(map[rune]*Character)
+
 	for id, m := range meta {
-		if m.IsSpace() {
-			continue
-		}
-		fmt.Println("extracting", id)
+		//fmt.Println("extracting", id)
 		char := m.(*CharacterMeta9700)
 		character, err := From9700(char, file, int64(readOffset))
 		if err != nil {
 			return fmt.Errorf("error reading character data: %w", err)
+		}
+
+		character.Value = rune(id)
+		chars[rune(id)] = character
+
+		if m.IsSpace() {
+			continue
 		}
 
 		filename := filepath.Join(outputPrefix+"_chars", fmt.Sprintf("%03d_0x%02X.png", id, id))
@@ -270,6 +280,74 @@ func run(args *Arguments) error {
 		}
 	}
 
+	err = drawText(outputPrefix+"_sample.png", chars, header, "The quick brown fox jumps over the lazy dog")
+	if err != nil {
+		return fmt.Errorf("Error drawing text: %w", err)
+	}
+
+	return nil
+}
+
+func fromPng(filename string) (image.Image, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return png.Decode(file)
+}
+
+func drawText(filename string, chars map[rune]*Character, header *FontHeader, text string) error {
+	fmt.Println("drawing sample to", filename)
+	line := []*Character{}
+
+	for _, r := range []rune(text) {
+		c, ok := chars[r]
+		if !ok {
+			return fmt.Errorf("Character for rune %c (0x%02X) doesn't exist", r, r)
+		}
+
+		line = append(line, c)
+	}
+
+	//gr, err := fromPng("gradient.png")
+	//if err != nil {
+	//	return err
+	//}
+
+	img := image.NewRGBA(image.Rect(0, 0, 1200, 200))
+	//offset := image.Rect(0, 100, 1200, 200)
+	baseline := 100
+	offset := 100
+
+	red := color.RGBA{255, 0, 0, 255}
+	//blue := color.RGBA{0, 0, 255, 255}
+	for i := 0; i < img.Bounds().Max.X; i++ {
+		img.Set(i, baseline, red)
+	}
+
+	maxHeight := int(header.DistanceBelow) + int(header.DistanceAbove)
+
+	for _, c := range line {
+		top := baseline - (c.Width() - (maxHeight - c.BlanksLeft)) - int(header.DistanceAbove)
+
+		draw.Draw(img, image.Rect(offset, top, img.Bounds().Max.X, img.Bounds().Max.Y), c.Image(), image.Pt(0, 0), draw.Over)
+		//draw.DrawMask(img, image.Rect(offset, top, img.Bounds().Max.X, img.Bounds().Max.Y), gr, image.Pt(200+offset, 0), c.Image(), image.Pt(0, 0), draw.Over)
+
+		offset += c.CellWidth
+	}
+
+	outfile, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Unable to create %s: %w", filename, err)
+	}
+	defer outfile.Close()
+
+	err = png.Encode(outfile, img)
+	if err != nil {
+		return fmt.Errorf("PNG encode error: %w", err)
+	}
 	return nil
 }
 

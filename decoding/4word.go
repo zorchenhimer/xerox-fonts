@@ -39,6 +39,8 @@ func (m CharacterMeta9700) String() string {
 	fmt.Fprintf(sb, "Spacing:      %t\n", m.IsSpace())
 	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
 	fmt.Fprintf(sb, "BitmapSize:   $%04X %4d\n", m.BitmapSize, m.BitmapSize)
+	fmt.Fprintf(sb, "Width:        %4d\n", int(abs(m.BitmapSize >> 9)) * 8)
+	fmt.Fprintf(sb, "Height:       %4d\n", int(abs(m.BitmapSize) & 0x1FF))
 	fmt.Fprintf(sb, "CellWidth:    $%04X %3d\n", m.CellWidth, m.CellWidth)
 	return sb.String()
 }
