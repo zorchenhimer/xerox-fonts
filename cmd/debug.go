@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"path/filepath"
+	"encoding/json"
 
 	"github.com/alexflint/go-arg"
 	xf "github.com/zorchenhimer/xeroxfont"
@@ -53,6 +54,28 @@ func run(args *Arguments) error {
 			if err != nil {
 				return fmt.Errorf("Error writing glyph bitmap: %w", err)
 			}
+		}
+	}
+
+	if args.MetadataFile != "" {
+		ext := filepath.Ext(args.MetadataFile)
+		switch ext {
+		case ".txt":
+			return fmt.Errorf("// TODO: .txt metadata")
+
+		case ".json":
+			raw, err := json.MarshalIndent(font, "", "    ")
+			if err != nil {
+				return fmt.Errorf("JSON marshal error: %w", err)
+			}
+
+			err = os.WriteFile(args.MetadataFile, raw, 0664)
+			if err != nil {
+				return fmt.Errorf("Error writing metadata to %s: %w", args.MetadataFile, err)
+			}
+
+		default:
+			return fmt.Errorf("Unknown metadata file format: %s", ext)
 		}
 	}
 

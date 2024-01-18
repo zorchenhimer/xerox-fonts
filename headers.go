@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"encoding/json"
 )
 
 type FontFormat byte
@@ -147,6 +148,57 @@ type FontHeader struct {
 	Library [10]byte
 
 	_ [210]byte
+}
+
+func (h FontHeader) MarshalJSON() ([]byte, error) {
+	t := string(h.FontType)
+
+	switch h.FontType {
+	case 'P':
+		t = "Proportional"
+	case 'F':
+		t = "Fixed"
+	}
+
+	data := struct {
+		Orientation string
+		FontType string
+		PixelHeight int
+		LineSpacing int
+		FixedWidth int
+		DistanceBelow int
+		DistanceAbove int
+		DistanceLeading int
+		LastCharacter int
+
+		BitmapSize int
+		Unknown5Word int
+
+		FontName string
+		Revision string
+		Version string
+		Library string
+	}{
+		Orientation: h.Orientation.String(),
+		FontType: t,
+		PixelHeight: int(h.PixelHeight),
+		LineSpacing: int(h.LineSpacing),
+		FixedWidth: int(h.FixedWidth),
+		DistanceBelow: int(h.DistanceBelow),
+		DistanceAbove: int(h.DistanceAbove),
+		DistanceLeading: int(h.DistanceLeading),
+		LastCharacter: int(h.LastCharacter),
+
+		BitmapSize: int(h.BitmapSize),
+		Unknown5Word: int(h.Unknown5Word),
+
+		FontName: fmt.Sprintf("%s", h.FontName),
+		Revision: fmt.Sprintf("%s", h.Revision),
+		Version: fmt.Sprintf("%s", h.Version),
+		Library: fmt.Sprintf("%s", h.Library),
+	}
+
+	return json.MarshalIndent(data, "", "    ")
 }
 
 func (h FontHeader) Is9700() bool {
