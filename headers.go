@@ -1,10 +1,81 @@
-package main
+package xeroxfont
 
 import (
 	"bytes"
 	"fmt"
 	"strings"
 )
+
+type FontFormat byte
+
+const (
+	FF_5Word_Portrait   FontFormat = 0xA8
+	FF_5Word_Landscape  FontFormat = 0xD0
+	FF_5Word_Landscape2 FontFormat = 0x2F
+	FF_5Word_IPortrait  FontFormat = 0x58
+	FF_5Word_ILandscape FontFormat = 0xF8
+
+	FF_5Word_Unknown FontFormat = 0xE6
+
+	FF_9700_Portrait   FontFormat = 0x20
+	FF_9700_Portrait2  FontFormat = 0x98
+	FF_9700_Landscape  FontFormat = 0x48
+	FF_9700_IPortrait  FontFormat = 0x80
+	FF_9700_ILandscape FontFormat = 0x70
+)
+
+func (f FontFormat) String() string {
+	switch f {
+	case FF_5Word_Portrait:
+		return "5Word Portrait"
+	case FF_5Word_Landscape:
+		return "5Word Landscape"
+	case FF_5Word_IPortrait:
+		return "5Word Inverted"
+	case FF_5Word_ILandscape:
+		return "5Word Inverted Landscape"
+
+	case FF_9700_Portrait, FF_9700_Portrait2:
+		return "9700 Portrait"
+	case FF_9700_Landscape:
+		return "9700 Landscape"
+	case FF_9700_IPortrait:
+		return "9700 Inverted Portrait"
+	case FF_9700_ILandscape:
+		return "9700 Inverted Landscape"
+	}
+
+	return "Unknown"
+}
+
+type Orientation byte
+
+const (
+	Portrait          Orientation = 0x50
+	Landscape         Orientation = 0x4C
+	InvertedPortrait  Orientation = 0x49
+	InvertedLandscape Orientation = 0x4A
+)
+
+func (o Orientation) String() string {
+	switch o {
+	case Portrait:          return "Portrait"
+	case Landscape:         return "Landscape"
+	case InvertedPortrait:  return "Inverted Portrait"
+	case InvertedLandscape: return "Inverted Landscape"
+	}
+
+	return "Unknown"
+}
+
+func IsOrientation(val byte) bool {
+	switch Orientation(val) {
+	case Portrait, Landscape, InvertedPortrait, InvertedLandscape:
+		return true
+	default:
+		return false
+	}
+}
 
 // 80 byte header, only new fonts saved in Elixir
 type ExtraHeader struct {
@@ -43,6 +114,11 @@ func (h ExtraHeader) Is9700() bool {
 	default:
 		return true
 	}
+
+	//if h.BitmapSize == 0 {
+	//	return false
+	//}
+	//return true
 }
 
 // Standard header
@@ -55,10 +131,15 @@ type FontHeader struct {
 	DistanceBelow uint16
 	DistanceAbove uint16
 	DistanceLeading uint16
-	UnknownD uint16
+	_ uint16
 	LastCharacter uint16
 
-	UnknownC [6]byte
+	// BitmapSize and Unknown5Word don't seem to ever both have a value.  9700
+	// fonts will fill BitmapSize, while 5Word fonts will fill Unknown5Word.
+	BitmapSize uint16
+	_ [2]byte
+	Unknown5Word uint16
+
 	FontName [6]byte
 	Revision [2]byte
 	_ [2]byte
@@ -66,6 +147,13 @@ type FontHeader struct {
 	Library [10]byte
 
 	_ [210]byte
+}
+
+func (h FontHeader) Is9700() bool {
+	if h.BitmapSize == 0 {
+		return false
+	}
+	return true
 }
 
 func (h FontHeader) String() string {

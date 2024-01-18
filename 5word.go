@@ -1,4 +1,4 @@
-package main
+package xeroxfont
 
 import (
 	"encoding/binary"
@@ -8,16 +8,30 @@ import (
 )
 
 type CharacterMeta5Word struct {
-	BlanksLeft uint8
-	Spacing byte
+	BlanksLeft uint16
+	//Spacing byte
 	GlyphOffset uint16
-	//Unknown3 byte
-	Unknown45 uint16
-	//Unknown5 byte
-	Unknown67 uint16
-	//Unknown7 byte
+	Unknown uint16
+	BitmapSize int16
 	CellWidth uint16
-	//Unknown9 byte
+}
+
+func (m CharacterMeta5Word) Meta() CharacterMeta {
+	return CharacterMeta{
+		BlanksLeft: int(m.BlanksLeft & 0x7FFF),
+		GlyphOffset: int(m.GlyphOffset),
+		Unknown: m.Unknown,
+		BitmapSize: m.BitmapSize,
+		CellWidth: int(m.CellWidth),
+		Spacing: m.BlanksLeft & 0x8000 == 0x8000,
+	}
+}
+
+func (m CharacterMeta5Word) IsSpace() bool {
+	if m.BlanksLeft & 0x8000 != 0 {
+		return true
+	}
+	return false
 }
 
 func (m CharacterMeta5Word) Offset(start int64) int {
@@ -27,29 +41,28 @@ func (m CharacterMeta5Word) Offset(start int64) int {
 func (m CharacterMeta5Word) String() string {
 	sb := &strings.Builder{}
 
-	spaceStr := "Space"
-	if m.Spacing == 0x00 {
-		spaceStr = "Non-Blank"
-	}
+	fmt.Fprintf(sb, "BlanksLeft:   $%04X %3d\n", m.BlanksLeft & 0x7FFF, m.BlanksLeft & 0x7FFF)
+	fmt.Fprintf(sb, "Spacing:      %t\n", m.IsSpace())
+	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
+	fmt.Fprintf(sb, "BitmapSize:   $%04X %4d\n", m.BitmapSize, m.BitmapSize)
+	fmt.Fprintf(sb, "Width:        %4d\n", int(abs(m.BitmapSize >> 9)) * 8)
+	fmt.Fprintf(sb, "Height:       %4d\n", int(abs(m.BitmapSize) & 0x1FF))
+	fmt.Fprintf(sb, "CellWidth:    $%04X %3d\n", m.CellWidth, m.CellWidth)
 
-	fmt.Fprintf(sb, "BlanksLeft:  $%02X\n", m.BlanksLeft)
-	fmt.Fprintf(sb, "Spacing:     $%02X %s\n", m.Spacing, spaceStr)
-	fmt.Fprintf(sb, "GlyphOffset: $%04X\n", m.GlyphOffset)
-	fmt.Fprintf(sb, "Unknown45:   $%04X %3d\n", m.Unknown45, int16(m.Unknown45))
-	//fmt.Fprintf(sb, "Unknown5:    $%02X\n", m.Unknown5)
-	fmt.Fprintf(sb, "Unknown67:   $%04X %03d\n", m.Unknown67, int16(m.Unknown67))
-	//fmt.Fprintf(sb, "Unknown7:    $%02X\n", m.Unknown7)
-	fmt.Fprintf(sb, "CellWidth:   $%04X\n", m.CellWidth)
+	//fmt.Fprintf(sb, "BlanksLeft:  $%02X\n", m.BlanksLeft)
+	//fmt.Fprintf(sb, "Spacing:     $%02X %s\n", m.Spacing, spaceStr)
+	//fmt.Fprintf(sb, "GlyphOffset: $%04X\n", m.GlyphOffset)
+	//fmt.Fprintf(sb, "Unknown45:   $%04X %3d\n", m.Unknown45, int16(m.Unknown45))
+	////fmt.Fprintf(sb, "Unknown5:    $%02X\n", m.Unknown5)
+	//fmt.Fprintf(sb, "Unknown67:   $%04X %03d\n", m.Unknown67, int16(m.Unknown67))
+	////fmt.Fprintf(sb, "Unknown7:    $%02X\n", m.Unknown7)
+	//fmt.Fprintf(sb, "CellWidth:   $%04X\n", m.CellWidth)
 
 	return sb.String()
 }
 
 func (m CharacterMeta5Word) Is5Word() bool {
 	return true
-}
-
-func (m CharacterMeta5Word) IsSpace() bool {
-	return m.Spacing == 0x80
 }
 
 func parse5WordMeta(reader io.Reader, lastChar int) ([]CharacterMeta, error) {
@@ -61,7 +74,7 @@ func parse5WordMeta(reader io.Reader, lastChar int) ([]CharacterMeta, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error reading CharacterMeta5Word at index %d: %w", i, err)
 		}
-		meta = append(meta, m)
+		meta = append(meta, m.Meta())
 	}
 
 	return meta, nil

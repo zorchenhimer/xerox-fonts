@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -11,82 +13,13 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-type FontFormat byte
-
-const (
-	FF_5Word_Portrait   FontFormat = 0xA8
-	FF_5Word_Landscape  FontFormat = 0xD0
-	FF_5Word_Landscape2 FontFormat = 0x2F
-	FF_5Word_IPortrait  FontFormat = 0x58
-	FF_5Word_ILandscape FontFormat = 0xF8
-
-	FF_5Word_Unknown FontFormat = 0xE6
-
-	FF_9700_Portrait   FontFormat = 0x20
-	FF_9700_Portrait2  FontFormat = 0x98
-	FF_9700_Landscape  FontFormat = 0x48
-	FF_9700_IPortrait  FontFormat = 0x80
-	FF_9700_ILandscape FontFormat = 0x70
-)
-
-func (f FontFormat) String() string {
-	switch f {
-	case FF_5Word_Portrait:
-		return "5Word Portrait"
-	case FF_5Word_Landscape:
-		return "5Word Landscape"
-	case FF_5Word_IPortrait:
-		return "5Word Inverted"
-	case FF_5Word_ILandscape:
-		return "5Word Inverted Landscape"
-
-	case FF_9700_Portrait, FF_9700_Portrait2:
-		return "9700 Portrait"
-	case FF_9700_Landscape:
-		return "9700 Landscape"
-	case FF_9700_IPortrait:
-		return "9700 Inverted Portrait"
-	case FF_9700_ILandscape:
-		return "9700 Inverted Landscape"
-	}
-
-	return "Unknown"
-}
-
-type Orientation byte
-
-const (
-	Portrait          Orientation = 0x50
-	Landscape         Orientation = 0x4C
-	InvertedPortrait  Orientation = 0x49
-	InvertedLandscape Orientation = 0x4A
-)
-
-func (o Orientation) String() string {
-	switch o {
-	case Portrait:          return "Portrait"
-	case Landscape:         return "Landscape"
-	case InvertedPortrait:  return "Inverted Portrait"
-	case InvertedLandscape: return "Inverted Landscape"
-	}
-
-	return "Unknown"
-}
-
-func IsOrientation(val byte) bool {
-	switch Orientation(val) {
-	case Portrait, Landscape, InvertedPortrait, InvertedLandscape:
-		return true
-	default:
-		return false
-	}
-}
-
-type CharacterMeta interface {
-	Is5Word() bool
-	IsSpace() bool
-	Offset(start int64) int
-}
+//type CharacterMeta interface {
+//	Is5Word() bool
+//	IsSpace() bool
+//
+//	// Given the start address, what is the offset of the glyph.
+//	Offset(start int64) int
+//}
 
 type Arguments struct {
 	Input string `arg:"positional,required"`

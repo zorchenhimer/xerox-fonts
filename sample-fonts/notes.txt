@@ -1,0 +1,14 @@
+Hack - Fixed
+ha10np  normal portrait 10pt
+ha12np  normal portrait 12pt
+ha10bp  bold portrait 10pt
+ha12bp  bold portrait 12pt
+ha10nl  normal landscape 10pt
+ha10ni  normal inverted portrait 10pt
+ha10nj  normal inverted landscape 10pt
+
+Bert Sans - Proportional
+bs10np  normal portrait 10pt
+bs10nl  normal landscape 10pt
+bs10ni  normal inverted portrait 10pt
+bs10nj  normal inverted landscape 10pt

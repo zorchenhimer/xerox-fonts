@@ -1,9 +1,9 @@
-*.fnt
-*.FNT
-*.txt
+#*.fnt
+#*.FNT
+#*.txt
 *.ps
 *.png
 *.zip
 *.exe
 
-decode
+cmd/debug

@@ -1,18 +1,106 @@
-package main
+package xeroxfont
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/draw"
 	"strings"
 	//"image/png"
-
 )
 
 type Font struct {
 	Header *FontHeader
 	Characters map[rune]*Character
+	Widths [256]uint8
+}
+
+func LoadFont(reader io.ReadSeeker) (*Font, error) {
+	var val byte
+	err := binary.Read(reader, binary.LittleEndian, &val)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading first byte: %w", err)
+	}
+
+	reader.Seek(0, 0)
+	readOffset := 0
+	font := &Font{
+		Header: &FontHeader{},
+		Characters: make(map[rune]*Character),
+		Widths: [256]uint8{},
+	}
+
+	// Just ignore the extra header for now.
+	if !IsOrientation(val) {
+		fmt.Println("skipping extra header")
+		_, err = reader.Seek(128, io.SeekStart)
+		if err != nil {
+			return nil, fmt.Errorf("Error skipping extra header: %w", err)
+		}
+		readOffset += 128
+	}
+
+	err = binary.Read(reader, binary.LittleEndian, font.Header)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading main header: %w", err)
+	}
+	readOffset += binary.Size(font.Header)
+	fmt.Println(font.Header)
+
+	err = binary.Read(reader, binary.LittleEndian, &font.Widths)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading width table: %w", err)
+	}
+	readOffset += binary.Size(font.Widths)
+
+	var metaCount int = int(font.Header.LastCharacter)
+	if font.Header.LastCharacter < 128 {
+		metaCount = 128
+	} else if font.Header.LastCharacter % 128 != 0 {
+		mod := int(font.Header.LastCharacter) % 128
+		metaCount = int(font.Header.LastCharacter) + (128 - mod)
+	}
+	//metaTableOffset := readOffset
+	fmt.Fprintf(os.Stderr, "metaCount: %d\n", metaCount)
+
+	var meta []CharacterMeta
+	if font.Header.Is9700() {
+		meta, err = MetaFrom9700(reader, metaCount)
+		readOffset += binary.Size(CharacterMeta9700{}) * metaCount
+	} else {
+		meta, err = MetaFrom5Word(reader, metaCount)
+		readOffset += binary.Size(CharacterMeta5Word{}) * metaCount
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing metadata: %w", err)
+	}
+
+	for id, m := range meta {
+		//fmt.Fprintf(os.Stdout, "[font] %d: %s\n", id, m)
+		char, err := m.Character(reader, int64(readOffset))
+		if err != nil {
+			return nil, fmt.Errorf("Error reading character data for 0x%02X: %w", id, err)
+		}
+
+		char.Value = rune(id)
+		font.Characters[rune(id)] = char
+	}
+
+	return font, nil
+}
+
+func LoadFontFromFile(filename string) (*Font, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return LoadFont(file)
 }
 
 /*
@@ -24,6 +112,9 @@ func (f *Font) DrawString(destImg draw.Image, destPt image.Point, cl color.Color
 	uni := image.NewUniform(cl)
 	maxHeight := int(f.Header.DistanceBelow) + int(f.Header.DistanceAbove)
 	offset := destPt.X
+	if maxHeight != int(f.Header.PixelHeight) {
+		fmt.Printf("maxHeight != PixelHeight: %d != %d\n", maxHeight, f.Header.PixelHeight)
+	}
 
 	for _, r := range []rune(text) {
 		c, ok := f.Characters[r]
@@ -31,7 +122,7 @@ func (f *Font) DrawString(destImg draw.Image, destPt image.Point, cl color.Color
 			continue
 		}
 
-		top := destPt.Y - (c.Width() - (maxHeight - c.BlanksLeft)) - int(f.Header.DistanceAbove)
+		top := destPt.Y - (c.Height() - (maxHeight - c.BlanksLeft)) - int(f.Header.DistanceAbove)
 		draw.DrawMask(
 			destImg,
 			image.Rect(offset, top, destImg.Bounds().Max.X, destImg.Bounds().Max.Y),

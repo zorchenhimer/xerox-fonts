@@ -1,10 +1,10 @@
-package main
+package xeroxfont
 
 import (
-	"encoding/binary"
-	"fmt"
-	"io"
-	"strings"
+	//"encoding/binary"
+	//"fmt"
+	//"io"
+	//"strings"
 )
 
 /*
@@ -22,48 +22,54 @@ type CharacterMeta9700 struct {
 	CellWidth uint16
 }
 
-func (m CharacterMeta9700) IsSpace() bool {
-	if m.BlanksLeft & 0x8000 != 0 {
-		return true
+func (m CharacterMeta9700) Meta() CharacterMeta {
+	return CharacterMeta{
+		BlanksLeft: int(m.BlanksLeft & 0x7FFF),
+		GlyphOffset: int(m.GlyphOffset),
+		BitmapSize: m.BitmapSize,
+		CellWidth: int(m.CellWidth),
+		Spacing: m.BlanksLeft & 0x8000 == 0x8000,
 	}
-	return false
 }
 
-func (m CharacterMeta9700) Offset(start int64) int {
-	return int(start) + (int(m.GlyphOffset) * 2)
-}
-
-func (m CharacterMeta9700) String() string {
-	sb := &strings.Builder{}
-	fmt.Fprintf(sb, "BlanksLeft:   $%04X %3d\n", m.BlanksLeft & 0x7FFF, m.BlanksLeft & 0x7FFF)
-	fmt.Fprintf(sb, "Spacing:      %t\n", m.IsSpace())
-	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
-	fmt.Fprintf(sb, "BitmapSize:   $%04X %4d\n", m.BitmapSize, m.BitmapSize)
-	fmt.Fprintf(sb, "Width:        %4d\n", int(abs(m.BitmapSize >> 9)) * 8)
-	fmt.Fprintf(sb, "Height:       %4d\n", int(abs(m.BitmapSize) & 0x1FF))
-	fmt.Fprintf(sb, "CellWidth:    $%04X %3d\n", m.CellWidth, m.CellWidth)
-	return sb.String()
-}
-
-func (m CharacterMeta9700) Is5Word() bool {
-	return false
-}
-
-//func (m CharacterMeta9700) IsSpacing() bool {
-//	return m.Spacing == 0x80
+//func (m CharacterMeta9700) IsSpace() bool {
+//	if m.BlanksLeft & 0x8000 != 0 {
+//		return true
+//	}
+//	return false
 //}
 
-func parse9700Meta(reader io.Reader, lastChar int) ([]CharacterMeta, error) {
-	var err error
-	meta := []CharacterMeta{}
-	for i := 0; i < lastChar; i++ {
-		m := &CharacterMeta9700{}
-		err = binary.Read(reader, binary.LittleEndian, m)
-		if err != nil {
-			return nil, fmt.Errorf("Error reading CharacterMeta9700 at index %d: %w", i, err)
-		}
-		meta = append(meta, m)
-	}
-
-	return meta, nil
-}
+//func (m CharacterMeta9700) Offset(start int64) int {
+//	return int(start) + (int(m.GlyphOffset) * 2)
+//}
+//
+//func (m CharacterMeta9700) String() string {
+//	sb := &strings.Builder{}
+//	fmt.Fprintf(sb, "BlanksLeft:   $%04X %3d\n", m.BlanksLeft & 0x7FFF, m.BlanksLeft & 0x7FFF)
+//	fmt.Fprintf(sb, "Spacing:      %t\n", m.IsSpace())
+//	fmt.Fprintf(sb, "GlyphOffset:  $%04X %4d\n", m.GlyphOffset, m.GlyphOffset)
+//	fmt.Fprintf(sb, "BitmapSize:   $%04X %4d\n", m.BitmapSize, m.BitmapSize)
+//	fmt.Fprintf(sb, "Width:        %4d\n", int(abs(m.BitmapSize >> 9)) * 8)
+//	fmt.Fprintf(sb, "Height:       %4d\n", int(abs(m.BitmapSize) & 0x1FF))
+//	fmt.Fprintf(sb, "CellWidth:    $%04X %3d\n", m.CellWidth, m.CellWidth)
+//	return sb.String()
+//}
+//
+//func (m CharacterMeta9700) Is5Word() bool {
+//	return false
+//}
+//
+//func parse9700Meta(reader io.Reader, lastChar int) ([]CharacterMeta, error) {
+//	var err error
+//	meta := []CharacterMeta{}
+//	for i := 0; i < lastChar; i++ {
+//		m := &CharacterMeta9700{}
+//		err = binary.Read(reader, binary.LittleEndian, m)
+//		if err != nil {
+//			return nil, fmt.Errorf("Error reading CharacterMeta9700 at index %d: %w", i, err)
+//		}
+//		meta = append(meta, m.Meta())
+//	}
+//
+//	return meta, nil
+//}
