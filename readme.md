@@ -7,17 +7,17 @@ bytes per character.
 
 | Section | Size (bytes) |
 | ----------- | ------ |
-| Extra Header (optional)   | 80 |
+| Extra Header (optional)   | 128 |
 | Main Header               | 256 |
 | Width Table               | 256 |
-| Character Metadata        | variable |
-| Character Glyph Bitmaps   | variable |
+| Character Metadata        | Multiple of 128 |
+| Character Glyph Bitmaps   | Variable        |
 
-The width table is a uint8 table of character widths.  Most likely for kerning
-purposes.
+The width table is a `uint8` table of character widths.  Most likely for
+kerning purposes.
 
 The character metadata table size is the last character value rounded up to the
-nearest 128, plus one.  The glyph bitmaps start immediately after this table.
+nearest 128.  The glyph bitmaps start immediately after this table.
 
 The bitmap table only contains bitmaps for characters that do not have the
 spacing property set.  Spacing characters are skipped over.
@@ -27,16 +27,15 @@ spacing property set.  Spacing characters are skipped over.
 This is an optional header padded to 128 bytes.  If present, it will start at
 `0x00` bumping the main header to `0x80`.
 
-| Type | Description |
-| -------- | -------- |
-| `byte`    | Font Format (see table) |
-| `byte`    | Font Type |
-| `[6]byte` | Font Name A |
-| `[6]byte` | Font Name B |
-| `[4]byte` | Unknown |
-| `[12]byte` | Unknown |
-| `[81]byte` | Padding |
-| `byte`    | End of header (always `0x2A`) |
+| Type       | Description  |
+| ---------- | ------------ |
+| `[2]byte`  | Unknown      |
+| `[6]byte`  | Font Name A  |
+| `[6]byte`  | Font Name B  |
+| `[4]byte`  | Unknown      |
+| `[12]byte` | Unknown      |
+| `[81]byte` | Padding      |
+| `byte`     | End of header (always `0x2A`) |
 
 ### Extra Header - Font Formats
 
@@ -70,23 +69,24 @@ header is padded to 256 bytes.
 | Type      | Description |
 | --------- | -------- |
 | `byte`      | Orientation (see table) |
-| `byte`      | Font Type (see table) |
-| `uint16`    | Pixel height |
-| `uint16`    | Line spacing |
+| `byte`      | Font Type (see table)   |
+| `uint16`    | Pixel height            |
+| `uint16`    | Line spacing            |
 | `uint16`    | Fixed width (ignored if proportional font) |
-| `uint16`    | Distance below |
-| `uint16`    | Distance above |
+| `uint16`    | Distance below   |
+| `uint16`    | Distance above   |
 | `uint16`    | Distance leading |
-| `uint16`    | Unknown |
-| `uint16`    | Last character |
-| `[6]byte`   | Unknown |
-| `[6]byte`   | Font name |
-| `[2]byte`   | Revision |
-| `[2]byte`   | Unknown |
-| `[2]byte`   | Version |
-| `[10]byte`  | Library |
-| `[210]byte` | Padding |
-
+| `uint16`    | Unknown          |
+| `uint16`    | Last character   |
+| `uint16`    | BitmapSize       |
+| `[2]byte`   | Unknown          |
+| `uint16`    | Unknown5Word     |
+| `[6]byte`   | Font name        |
+| `[2]byte`   | Revision         |
+| `[2]byte`   | Unknown          |
+| `[2]byte`   | Version          |
+| `[10]byte`  | Library          |
+| `[210]byte` | Padding          |
 
 ### Main Header - Orientations
 
