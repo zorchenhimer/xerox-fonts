@@ -41,7 +41,7 @@ func (m CharacterMeta) Character(reader io.ReadSeeker, eot int64) (*Character, e
 		BlanksLeft: int(m.BlanksLeft & 0x7FFF),
 		GlyphOffset: int(m.GlyphOffset),
 		CellWidth: int(m.CellWidth),
-		bitmapSize: m.BitmapSize,
+		BitmapSize: m.BitmapSize,
 	}
 
 	c.IsSpace = m.IsSpace()

@@ -1,9 +1,12 @@
 #*.fnt
 #*.FNT
 #*.txt
+*.bdf
+*.json
 *.ps
 *.png
 *.zip
 *.exe
 
 cmd/debug
+cmd/fnt2bdf

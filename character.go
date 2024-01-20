@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/png"
 	"image/color"
+	"encoding/json"
 )
 
 type Character struct {
@@ -16,7 +17,7 @@ type Character struct {
 	CellWidth int
 	Value rune
 
-	bitmapSize int16
+	BitmapSize int16
 	glyph []byte
 	img image.Image
 	mask image.Image
@@ -33,12 +34,32 @@ func abs(x int16) int16 {
 	return x
 }
 
+func (c *Character) MarshalJSON() ([]byte, error) {
+	data := struct {
+		Value rune
+		IsSpace bool
+		BlanksLeft int
+		CellWidth int
+		Width int
+		Height int
+	}{
+		Value: c.Value,
+		IsSpace: c.IsSpace,
+		BlanksLeft: c.BlanksLeft,
+		CellWidth: c.CellWidth,
+		Width: c.Width(),
+		Height: c.Height(),
+	}
+
+	return json.MarshalIndent(data, "", "    ")
+}
+
 func (c *Character) Height() int {
-	return int(abs(c.bitmapSize >> 9))*8
+	return int(abs(c.BitmapSize >> 9))*8
 }
 
 func (c *Character) Width() int {
-	return int(abs(c.bitmapSize) & 0x1FF)
+	return int(abs(c.BitmapSize) & 0x1FF)
 }
 
 func (c *Character) WriteImage(filename string) error {
@@ -76,7 +97,7 @@ func (c *Character) Mask() image.Image {
 	}
 
 	x, y := 0, height
-	on := color.Black
+	on := color.White
 
 	for _, b := range c.glyph {
 		for i := 7; i > -1; i-- {
