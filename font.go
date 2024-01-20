@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/draw"
 	"strings"
+	"log"
 	//"image/png"
 )
 
@@ -35,7 +36,7 @@ func LoadFont(reader io.ReadSeeker) (*Font, error) {
 
 	// Just ignore the extra header for now.
 	if !IsOrientation(val) {
-		fmt.Println("skipping extra header")
+		log.Println("skipping extra header")
 		_, err = reader.Seek(128, io.SeekStart)
 		if err != nil {
 			return nil, fmt.Errorf("Error skipping extra header: %w", err)
@@ -48,7 +49,7 @@ func LoadFont(reader io.ReadSeeker) (*Font, error) {
 		return nil, fmt.Errorf("Error reading main header: %w", err)
 	}
 	readOffset += binary.Size(font.Header)
-	fmt.Println(font.Header)
+	log.Println(font.Header)
 
 	err = binary.Read(reader, binary.LittleEndian, &font.Widths)
 	if err != nil {
@@ -64,7 +65,7 @@ func LoadFont(reader io.ReadSeeker) (*Font, error) {
 		metaCount = int(font.Header.LastCharacter) + (128 - mod)
 	}
 	//metaTableOffset := readOffset
-	fmt.Fprintf(os.Stderr, "metaCount: %d\n", metaCount)
+	log.Printf("metaCount: %d\n", metaCount)
 
 	var meta []CharacterMeta
 	if font.Header.Is9700() {
@@ -80,7 +81,7 @@ func LoadFont(reader io.ReadSeeker) (*Font, error) {
 	}
 
 	for id, m := range meta {
-		//fmt.Fprintf(os.Stdout, "[font] %d: %s\n", id, m)
+		//log.Printf("[font] %d: %s\n", id, m)
 		char, err := m.Character(reader, int64(readOffset))
 		if err != nil {
 			return nil, fmt.Errorf("Error reading character data for 0x%02X: %w", id, err)
@@ -112,9 +113,9 @@ func (f *Font) DrawString(destImg draw.Image, destPt image.Point, cl color.Color
 	uni := image.NewUniform(cl)
 	maxHeight := int(f.Header.DistanceBelow) + int(f.Header.DistanceAbove)
 	offset := destPt.X
-	if maxHeight != int(f.Header.PixelHeight) {
-		fmt.Printf("maxHeight != PixelHeight: %d != %d\n", maxHeight, f.Header.PixelHeight)
-	}
+	//if maxHeight != int(f.Header.PixelHeight) {
+	//	fmt.Printf("maxHeight != PixelHeight: %d != %d\n", maxHeight, f.Header.PixelHeight)
+	//}
 
 	for _, r := range []rune(text) {
 		c, ok := f.Characters[r]
@@ -144,10 +145,10 @@ func (f *Font) Render(cl color.Color, text string) image.Image {
 	//maxHeight := pxHeight + ((len(lines)-1) * int(f.Header.LineSpacing))
 	maxHeight := (len(lines)*int(f.Header.LineSpacing))
 
-	fmt.Println("pxHeight:", pxHeight)
-	fmt.Println("maxHeight:", maxHeight)
-	fmt.Println("LineSpacing:", f.Header.LineSpacing)
-	fmt.Println("len(lines):", len(lines))
+	log.Println("pxHeight:", pxHeight)
+	log.Println("maxHeight:", maxHeight)
+	log.Println("LineSpacing:", f.Header.LineSpacing)
+	log.Println("len(lines):", len(lines))
 
 	for _, l := range lines {
 		w := f.textWidth(l)
@@ -160,7 +161,7 @@ func (f *Font) Render(cl color.Color, text string) image.Image {
 	for i, l := range lines {
 		//baseline := ((i+1)*int(f.Header.DistanceAbove)) + (i*(int(f.Header.DistanceBelow)+int(f.Header.LineSpacing)))
 		baseline := int(f.Header.DistanceAbove) + (i*int(f.Header.LineSpacing))
-		fmt.Printf("[%d] baseline: %d\n", i, baseline)
+		log.Printf("[%d] baseline: %d\n", i, baseline)
 		f.DrawString(img, image.Pt(0, baseline), cl, l)
 	}
 

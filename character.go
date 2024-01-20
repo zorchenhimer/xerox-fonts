@@ -17,9 +17,6 @@ type Character struct {
 	Value rune
 
 	bitmapSize int16
-	//width int
-	//height int
-
 	glyph []byte
 	img image.Image
 	mask image.Image
@@ -43,44 +40,6 @@ func (c *Character) Height() int {
 func (c *Character) Width() int {
 	return int(abs(c.bitmapSize) & 0x1FF)
 }
-
-//func From9700(raw *CharacterMeta9700, reader io.ReadSeeker, eot int64) (*Character, error) {
-//	c := &Character{
-//		BlanksLeft: int(raw.BlanksLeft & 0x7FFF),
-//		GlyphOffset: int(raw.GlyphOffset),
-//		CellWidth: int(raw.CellWidth),
-//		bitmapSize: raw.BitmapSize,
-//	}
-//
-//	c.IsSpace = raw.IsSpace()
-//	if c.IsSpace {
-//		return c, nil
-//	}
-//
-//	_, err := reader.Seek(int64(raw.Offset(eot)), 0)
-//	if err != nil {
-//		return nil, fmt.Errorf("unable to seek to glyph start $%04X: %w", raw.Offset(eot), err)
-//	}
-//
-//	c.width = c.Width()
-//	c.height = c.Height()
-//
-//	c.glyph = make([]byte, c.width*c.height)
-//	_, err = reader.Read(c.glyph)
-//	if err != nil {
-//		return nil, fmt.Errorf("error reading glyph bytes: %w", err)
-//	}
-//
-//	if len(c.glyph)-1 % 2 != 0 {
-//		c.glyph = append(c.glyph, 0x00)
-//	}
-//
-//	for i := 0; i < len(c.glyph)-1; i+=2 {
-//		c.glyph[i], c.glyph[i+1] = c.glyph[i+1], c.glyph[i]
-//	}
-//
-//	return c, nil
-//}
 
 func (c *Character) WriteImage(filename string) error {
 	outfile, err := os.Create(filename)
@@ -155,8 +114,6 @@ func (c *Character) Image() image.Image {
 	if c.IsSpace {
 		return img
 	}
-
-	//fmt.Fprintf(os.Stderr, "Character.Image(): (%dx%d)\n", width, height)
 
 	x, y := 0, height
 	on := color.White

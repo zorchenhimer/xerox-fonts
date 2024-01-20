@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"path/filepath"
 	"encoding/json"
+	"log"
 
 	"github.com/alexflint/go-arg"
 	xf "github.com/zorchenhimer/xeroxfont"
@@ -22,6 +23,8 @@ type Arguments struct {
 	SampleTextFile string `arg:"--sample-text-file" help:"File that contains sample text."`
 	SampleText     string `arg:"--sample-text"      help:"Sample text string."`
 	SampleOutput   string `arg:"--sample-output"    help:"Output filename for sample."`
+
+	Verbose bool `arg:"-v,--verbose"`
 }
 
 const (
@@ -127,6 +130,11 @@ func drawText(filename string, font *xf.Font, text string) error {
 func main() {
 	args := &Arguments{}
 	arg.MustParse(args)
+
+	if args.Verbose {
+		log.SetOutput(os.Stdout)
+		log.SetFlags(log.LstdFlags)
+	}
 
 	err := run(args)
 	if err != nil {
