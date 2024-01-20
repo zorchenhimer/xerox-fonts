@@ -127,3 +127,11 @@ seen there is `0xC000`.
 
 The size, in bytes, of each glyph is `abs(BitmapSize >> 9) *
 (abs(BitmapSize) & 0x1FF)`.  Each glyph is stored rotated 90 degrees clockwise.
+
+# License
+
+This code is relased under the MIT license, see [license.md](license.md) for the full text.
+
+The two sample fonts have their own licenses:
+[BertSans_License.txt](sample-fonts/ttf/BertSans_License.txt) &
+[Hack_LICENSE.md](sample-fonts/ttf/Hack_LICENSE.md).
