@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"encoding/json"
 	"log"
+	"strings"
 
 	"github.com/alexflint/go-arg"
 	xf "github.com/zorchenhimer/xeroxfont"
@@ -24,6 +25,7 @@ type Arguments struct {
 	SampleText     string `arg:"--sample-text"      help:"Sample text string."`
 	SampleOutput   string `arg:"--sample-output"    help:"Output filename for sample."`
 
+	GlyphAscii string `arg:"--glyphs" help:"text file to write an ascii representation of the raw glyph data."`
 	Verbose bool `arg:"-v,--verbose"`
 }
 
@@ -79,6 +81,13 @@ func run(args *Arguments) error {
 
 		default:
 			return fmt.Errorf("Unknown metadata file format: %s", ext)
+		}
+	}
+
+	if args.GlyphAscii != "" {
+		err = writeGlyphAscii(args.GlyphAscii, font)
+		if err != nil {
+			return fmt.Errorf("Error writing glyph ascii text: %w", err)
 		}
 	}
 
@@ -141,4 +150,28 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func writeGlyphAscii(filename string, f *xf.Font) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, char := range f.Characters {
+		_ = char.Mask()
+		fmt.Fprintf(file, "\nCharacter 0x%02X [%3d] (%d, %d) {%d, %d} %s\n", char.Value, char.Value, char.Width(), char.Height(), len(char.RawGlyph()), char.GlyphCount, xf.PostscriptNames[char.Value])
+		vals := []string{}
+		for i, b := range char.RawGlyph() {
+			if i % (char.Height() / 8) == 0 && i != 0 {
+				//fmt.Fprintln(file, strings.ReplaceAll(strings.ReplaceAll(strings.Join(vals, " "), "0", "."), "1", "X"))
+				fmt.Fprintln(file, strings.Join(vals, " "))
+				vals = []string{}
+			}
+			vals = append(vals, fmt.Sprintf("%08b", b))
+		}
+	}
+
+	return nil
 }

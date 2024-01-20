@@ -18,6 +18,7 @@ type Character struct {
 	Value rune
 
 	BitmapSize int16
+	GlyphCount int
 	glyph []byte
 	img image.Image
 	mask image.Image
@@ -99,6 +100,7 @@ func (c *Character) Mask() image.Image {
 	x, y := 0, height
 	on := color.White
 
+	c.GlyphCount = 0
 	for _, b := range c.glyph {
 		for i := 7; i > -1; i-- {
 			v := (b >> i) & 0x01
@@ -111,6 +113,7 @@ func (c *Character) Mask() image.Image {
 			y--
 			x = 0
 		}
+		c.GlyphCount++
 	}
 
 	c.img = img
@@ -140,6 +143,7 @@ func (c *Character) Image() image.Image {
 	on := color.White
 	off := color.Black
 
+	c.GlyphCount = 0
 	for _, b := range c.glyph {
 		for i := 7; i > -1; i-- {
 			v := (b >> i) & 0x01
@@ -154,8 +158,13 @@ func (c *Character) Image() image.Image {
 			y--
 			x = 0
 		}
+		c.GlyphCount++
 	}
 
 	c.img = img
 	return img
+}
+
+func (c *Character) RawGlyph() []byte {
+	return c.glyph
 }

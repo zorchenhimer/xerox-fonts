@@ -58,7 +58,8 @@ func (m CharacterMeta) Character(reader io.ReadSeeker, eot int64) (*Character, e
 	//c.height = c.Height()
 	//fmt.Fprintf(os.Stderr, "[meta char] 0x%06X: %s\n", currentOffset, m)
 
-	c.glyph = make([]byte, c.Width()*c.Height())
+	size := c.Width()*(c.Height()/8)
+	c.glyph = make([]byte, size)
 	_, err = reader.Read(c.glyph)
 	if err != nil {
 		return nil, fmt.Errorf("error reading glyph bytes at offset %d with length of %d (%dx%d): %w", currentOffset, len(c.glyph), c.Width(), c.Height(), err)
