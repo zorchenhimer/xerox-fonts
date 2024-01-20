@@ -14,7 +14,8 @@ bytes per character.
 | Character Glyph Bitmaps   | Variable        |
 
 The width table is a `uint8` table of character widths.  Most likely for
-kerning purposes.
+kerning purposes.  This table can be ignored as each character has a CellWidth
+filed in the metadata table that can be used for spacing characters.
 
 The character metadata table size is the last character value rounded up to the
 nearest 128.  The glyph bitmaps start immediately after this table.
@@ -25,11 +26,12 @@ spacing property set.  Spacing characters are skipped over.
 ## Extra Header
 
 This is an optional header padded to 128 bytes.  If present, it will start at
-`0x00` bumping the main header to `0x80`.
+`0x00` bumping the main header to `0x80`.  It can be completely ignored.
 
 | Type       | Description  |
 | ---------- | ------------ |
-| `[2]byte`  | Unknown      |
+| `[2]byte`  | FontFormat   |
+| `[16]byte` | Unknown      |
 | `[6]byte`  | Font Name A  |
 | `[6]byte`  | Font Name B  |
 | `[4]byte`  | Unknown      |
@@ -39,27 +41,9 @@ This is an optional header padded to 128 bytes.  If present, it will start at
 
 ### Extra Header - Font Formats
 
-These values do not overlap with the main header's orientation values.  This
-byte can be used to determine if the extra header is present.
-
-#### 9700
-
-| Value | Description |
-| -------- | -------- |
-| `0x19`   | Portrait           |
-| `0x48`   | Landscape          |
-| `0x80`   | Inverted Portrait  |
-| `0x70`   | Inverted Landscape |
-| `0x98`   | Also portrait?     |
-
-#### 5Word
-
-| Value | Description |
-| -------- | -------- |
-| `0xA8`   | Portrait           |
-| `0xD0`   | Landscape          |
-| `0x58`   | Inverted Portrait  |
-| `0xF8`   | Inverted Landscape |
+This is most likely information about the type of metadata table (9700 or
+5Word), orientation, and fixed/proportional properties.  I haven't been able to
+come to any solid conclusions about the values yet.
 
 ## Main Header
 
@@ -115,14 +99,31 @@ header is padded to 256 bytes.
 | int16  | Bitmap Size |
 | uint16 | Cell width |
 
-Bitmap size is a packed field that contains both width and height.  Height is
-`abs(BitmapSize) & 0x1FF)` and width is `abs(BitmapSize >> 9) * 8`.  Dimensions
+### 5Word
+
+| Type      | Description |
+| --------- | -------- |
+| uint16 | Blanks left & Spacing |
+| uint16 | Glyph offset |
+| uint16 | Unknown |
+| int16  | Bitmap Size |
+| uint16 | Cell width |
+
+Bitmap size is a packed field that contains both width and height.  Width is
+`abs(BitmapSize) & 0x1FF)` and height is `abs(BitmapSize >> 9) * 8`.  Dimensions
 are in pixels.
 
 Blanks left is `BlanksLeft & 0x7FFF` and Spacing is a boolean determited by
-`BlanksLeft & 0x8000`.
+`BlanksLeft & 0x8000`.  The baseline is `BlanksLeft & 0x7FFF` pixels from the
+bottom of the glyph.
+
+Cell width is the offset from the left side of the bitmap to the current glyph
+to the left side of the next glyph.
+
+No idea what the `Unknown` field in the 5Word format is.  The only value I've
+seen there is `0xC000`.
 
 ## Glyph Bitmaps
 
-The size, in bytes, of each glyph is `(abs(BitmapSize >> 9)*8) *
-(abs(BitmapSize) & 0x1FF)`
+The size, in bytes, of each glyph is `abs(BitmapSize >> 9) *
+(abs(BitmapSize) & 0x1FF)`.  Each glyph is stored rotated 90 degrees clockwise.
